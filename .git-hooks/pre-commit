@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+# Pre-commit hook to prevent committing sensitive data
+# Install: cp .git-hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+echo "🔍 Checking for sensitive data..."
+
+# Check for common secret patterns
+PATTERNS=(
+    '[0-9A-Za-z]{87,88}'  # Solana private keys
+    'PRIVATE_KEY.*[A-Za-z0-9]{40,}'  # Private key assignments
+    'api-key=[A-Za-z0-9-]{30,}'  # API keys
+    'mongodb://[^:]+:[^@]+@'  # MongoDB credentials
+)
+
+FILES=$(git diff --cached --name-only --diff-filter=ACM)
+FOUND_SECRETS=false
+
+for FILE in $FILES; do
+    # Skip this hook file itself
+    if [[ "$FILE" == ".git-hooks/pre-commit" ]]; then
+        continue
+    fi
+    
+    for PATTERN in "${PATTERNS[@]}"; do
+        if git diff --cached "$FILE" | grep -qE "$PATTERN"; then
+            echo "❌ BLOCKED: Potential secret found in $FILE"
+            echo "   Pattern: $PATTERN"
+            FOUND_SECRETS=true
+        fi
+    done
+done
+
+# Check for specific filenames that should never be committed
+BLOCKED_FILES=(
+    "wallet.json"
+    ".env"
+    ".env.local"
+    "*-private-key.txt"
+    "*.key"
+)
+
+for FILE in $FILES; do
+    for BLOCKED in "${BLOCKED_FILES[@]}"; do
+        if [[ "$FILE" == $BLOCKED ]]; then
+            echo "❌ BLOCKED: $FILE should not be committed!"
+            FOUND_SECRETS=true
+        fi
+    done
+done
+
+if [ "$FOUND_SECRETS" = true ]; then
+    echo ""
+    echo "🚨 COMMIT BLOCKED - Sensitive data detected!"
+    echo ""
+    echo "If this is a false positive, you can:"
+    echo "1. Review the changes carefully"
+    echo "2. Use environment variables instead of hardcoded values"
+    echo "3. Skip this hook with: git commit --no-verify (USE WITH CAUTION!)"
+    echo ""
+    exit 1
+fi
+
+echo "✅ No sensitive data detected"
+exit 0

@@ -1,0 +1,7 @@
+{
+  "name": "Test Bot Token",
+  "symbol": "TBOT",
+  "description": "This is a test token launched by an AI bot using PumpBot",
+  "image": "https://via.placeholder.com/400/14F195/ffffff?text=TBOT",
+  "showName": true
+}
